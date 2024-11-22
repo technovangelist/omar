@@ -7,59 +7,54 @@ on:
 jobs:
   release:
     runs-on: macos-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Get current version
         id: get_version
         run: |
           VERSION=$(grep '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
-          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "current_version=${VERSION}" >> "${GITHUB_ENV}"
 
       - name: Bump version
         id: bump_version
         run: |
           # Split version into parts
-          IFS='.' read -r major minor patch <<< "${{ steps.get_version.outputs.current_version }}"
+          IFS='.' read -r major minor patch <<< "${current_version}"
           # Increment patch version
           new_patch=$((patch + 1))
           NEW_VERSION="$major.$minor.$new_patch"
           # Update Cargo.toml
           sed -i '' "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "new_version=${NEW_VERSION}" >> "${GITHUB_ENV}"
 
       - name: Build Release
         run: cargo build --release
 
       - name: Create Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: v${{ steps.bump_version.outputs.new_version }}
-          name: Release v${{ steps.bump_version.outputs.new_version }}
+          tag: v${{ env.new_version }}
+          name: Release v${{ env.new_version }}
           draft: false
           prerelease: false
-          files: |
-            target/release/ollama-model-report
+          artifacts: target/release/ollama-model-report
           body: |
-            Automatic release of OMAR v${{ steps.bump_version.outputs.new_version }}
+            Automatic release of OMAR v${{ env.new_version }}
             
             This release was automatically generated from the latest main branch commit.
 
       - name: Commit version bump
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add Cargo.toml
-          git commit -m "Bump version to ${{ steps.bump_version.outputs.new_version }}"
+          git commit -m "Bump version to ${{ env.new_version }}"
           git push
