@@ -38,6 +38,11 @@ jobs:
       - name: Build Release
         run: cargo build --release
 
+      - name: Prepare Release Asset
+        run: |
+          cp target/release/ollama-model-report target/release/omar-macOS
+          chmod +x target/release/omar-macOS
+
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
@@ -45,7 +50,7 @@ jobs:
           name: Release v${{ env.new_version }}
           draft: false
           prerelease: false
-          artifacts: target/release/ollama-model-report
+          artifacts: target/release/omar-macOS
           body: |
             Automatic release of OMAR v${{ env.new_version }}
             
